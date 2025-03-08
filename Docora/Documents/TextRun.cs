@@ -10,6 +10,8 @@ namespace Docora.Documents
         private int _cachedContentVersion = -1;
         private string? _cachedContent;
 
+        public bool IsContentEmpty => _buffer.Length == 0;
+
         public string Content
         {
             get

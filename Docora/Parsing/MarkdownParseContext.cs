@@ -41,6 +41,25 @@ namespace Docora.Parsing
             return newHeader;
         }
 
+        public CodeBlock EnsureCodeBlock(string? language)
+        {
+            if (!_blockClosed &&
+                Blocks.Last is CodeBlock currentCodeBlock &&
+                currentCodeBlock.Language == language)
+            {
+                return currentCodeBlock;
+            }
+
+            _blockClosed = false;
+            var newCodeBlock = new CodeBlock()
+            {
+                Language = language,
+            };
+
+            Blocks.Add(newCodeBlock);
+            return newCodeBlock;
+        }
+
         public TextRun EnsureParagraphTextRun(TextRunStyles styles)
         {
             var paragraph = EnsureParagraph();

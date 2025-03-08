@@ -63,7 +63,10 @@ namespace Docora.Utilities
                         });
                 }
 
-                flowDocument.Blocks.Add(flowBlock);
+                if (flowBlock is not null)
+                {
+                    flowDocument.Blocks.Add(flowBlock);
+                }
             }
 
             return flowDocument;

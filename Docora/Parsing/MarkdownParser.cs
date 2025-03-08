@@ -31,10 +31,13 @@ namespace Docora.Parsing
             var stateMachine = new StateMachine(context);
 
             stateMachine.Start();
+
             foreach (var c in text)
             {
                 stateMachine.Push(c);
             }
+
+            stateMachine.Push(-1);
         }
 
         public static MarkdownDocument Parse(string text)

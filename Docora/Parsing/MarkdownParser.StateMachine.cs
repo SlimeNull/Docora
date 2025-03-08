@@ -9,13 +9,15 @@ namespace Docora.Parsing
         private class StateMachine
         {
             public bool InCR { get; set; }
+            public bool InLineStart { get; set; }
             public bool IsEscaping { get; set; }
 
-            public bool InLineStart { get; set; }
+            public bool ReadyForBlock { get; set; }
             public bool InLineStartPoundSign { get; set; }
             public bool InLineStartListStart { get; set; }
             public bool InLineStartCodeBlockStart { get; set; }
             public bool InHeader { get; set; }
+            public bool InCodeBlock { get; set; }
             public bool InList { get; set; }
 
             // tags
@@ -36,6 +38,7 @@ namespace Docora.Parsing
 
             public int TagSize { get; set; }
             public int HeaderLevel { get; set; }
+            public string? CodeBlockLanguage { get; set; }
 
             public TextRunStyles TextRunStyles { get; } = new TextRunStyles();
             public StringBuilder CachedContent { get; } = new StringBuilder();
@@ -49,10 +52,10 @@ namespace Docora.Parsing
 
             public void Start()
             {
-                InLineStart = true;
+                ReadyForBlock = true;
             }
 
-            public void Push(char c)
+            public void Push(int c)
             {
                 if (InCR && c == '\n')
                 {
@@ -66,96 +69,43 @@ namespace Docora.Parsing
                     c = '\n';
                 }
 
-                bool inParagraph = false;
-                if (InLineStart)
+                try
                 {
-                    InLineStart = false;
-
-                    if (c == '\n')
+                    bool inParagraph = false;
+                    if (ReadyForBlock)
                     {
-                        ResetStates();
-                        Context.CloseBlock();
+                        ReadyForBlock = false;
 
-                        InLineStart = true;
-                    }
-                    else if (c == '#')
-                    {
-                        InLineStartPoundSign = true;
-                        TagSize = 1;
-                    }
-                    else if (c == '`')
-                    {
-                        InLineStartCodeBlockStart = true;
-                        TagSize = 1;
-                    }
-                    else if (char.IsNumber(c))
-                    {
-                        InLineStartListStart = true;
-                        CachedContent.Append(c);
-                    }
-                    else
-                    {
-                        inParagraph = true;
-                    }
-                }
-                else if (InLineStartPoundSign)
-                {
-                    if (c == '\n')
-                    {
-                        var poundSignCount = TagSize;
-
-                        InLineStartPoundSign = false;
-                        TagSize = 0;
-
-                        var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                        for (int i = 0; i < poundSignCount; i++)
-                        {
-                            textRun.Append('#');
-                        }
-
-                        textRun.Append(' ');
-                    }
-                    else if (c == '#')
-                    {
-                        TagSize++;
-                    }
-                    else if (c == ' ')
-                    {
-                        HeaderLevel = TagSize;
-
-                        InLineStartPoundSign = false;
-                        TagSize = 0;
-
-                        InHeader = true;
-
-                        Context.EnsureHeader(HeaderLevel);
-                    }
-                    else
-                    {
-                        // save some info
-                        var poundSignCount = TagSize;
-
-                        // clear old state
-                        InLineStartPoundSign = false;
-                        TagSize = 0;
-
-                        // create paragraph and text run
-                        var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-
-                        for (int i = 0; i < poundSignCount; i++)
-                        {
-                            textRun.Append('#');
-                        }
-
-                        textRun.Append(c);
-                    }
-                }
-                else if (InLineStartCodeBlockStart)
-                {
-                    // 还在 ` 中, 累计 `
-                    if (TagSize > 0)
-                    {
                         if (c == '\n')
+                        {
+                            ResetStates();
+                            Context.CloseBlock();
+
+                            ReadyForBlock = true;
+                        }
+                        else if (c == '#')
+                        {
+                            InLineStartPoundSign = true;
+                            TagSize = 1;
+                        }
+                        else if (c == '`')
+                        {
+                            InLineStartCodeBlockStart = true;
+                            TagSize = 1;
+                        }
+                        else if (char.IsNumber((char)c))
+                        {
+                            InLineStartListStart = true;
+                            CachedContent.Append((char)c);
+                        }
+                        else
+                        {
+                            inParagraph = true;
+                        }
+                    }
+                    else if (InLineStartPoundSign)
+                    {
+                        if (c == -1)
                         {
                             var poundSignCount = TagSize;
 
@@ -165,257 +115,492 @@ namespace Docora.Parsing
                             var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
                             for (int i = 0; i < poundSignCount; i++)
                             {
-                                textRun.Append('`');
+                                textRun.Append('#');
+                            }
+                        }
+                        else if (c == '\n')
+                        {
+                            var poundSignCount = TagSize;
+
+                            InLineStartPoundSign = false;
+                            TagSize = 0;
+
+                            var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                            for (int i = 0; i < poundSignCount; i++)
+                            {
+                                textRun.Append('#');
                             }
 
                             textRun.Append(' ');
                         }
-                        else if (c == '`')
+                        else if (c == '#')
                         {
                             TagSize++;
+                        }
+                        else if (c == ' ')
+                        {
+                            HeaderLevel = TagSize;
 
-                            if (TagSize > 3)
+                            InLineStartPoundSign = false;
+                            TagSize = 0;
+
+                            InHeader = true;
+
+                            Context.EnsureHeader(HeaderLevel);
+                        }
+                        else
+                        {
+                            // save some info
+                            var poundSignCount = TagSize;
+
+                            // clear old state
+                            InLineStartPoundSign = false;
+                            TagSize = 0;
+
+                            // create paragraph and text run
+                            var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+
+                            for (int i = 0; i < poundSignCount; i++)
                             {
-                                var backtickCount = TagSize;
+                                textRun.Append('#');
+                            }
 
-                                InLineStartCodeBlockStart = false;
+                            textRun.Append((char)c);
+                        }
+                    }
+                    else if (InLineStartCodeBlockStart)
+                    {
+                        // 还在 ` 中, 累计 `
+                        if (TagSize > 0)
+                        {
+                            if (c == -1)
+                            {
+                                var poundSignCount = TagSize;
+
+                                InLineStartPoundSign = false;
                                 TagSize = 0;
 
                                 var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                                for (int i = 0; i < backtickCount; i++)
+                                for (int i = 0; i < poundSignCount; i++)
                                 {
                                     textRun.Append('`');
+                                }
+                            }
+                            else if (c == '\n')
+                            {
+                                var poundSignCount = TagSize;
+
+                                InLineStartPoundSign = false;
+                                TagSize = 0;
+
+                                var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                for (int i = 0; i < poundSignCount; i++)
+                                {
+                                    textRun.Append('`');
+                                }
+
+                                textRun.Append(' ');
+                            }
+                            else if (c == '`')
+                            {
+                                TagSize++;
+
+                                if (TagSize > 3)
+                                {
+                                    var backtickCount = TagSize;
+
+                                    InLineStartCodeBlockStart = false;
+                                    TagSize = 0;
+
+                                    var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                    for (int i = 0; i < backtickCount; i++)
+                                    {
+                                        textRun.Append('`');
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (TagSize != 3)
+                                {
+                                    var poundSignCount = TagSize;
+
+                                    InLineStartPoundSign = false;
+                                    TagSize = 0;
+
+                                    var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                    for (int i = 0; i < poundSignCount; i++)
+                                    {
+                                        textRun.Append('`');
+                                    }
+
+                                    inParagraph = true;
+                                }
+                                else
+                                {
+                                    TagSize = 0;
+                                    CachedContent.Append((char)c);
                                 }
                             }
                         }
                         else
                         {
-                            var backtickCount = TagSize;
-
-                            InLineStartCodeBlockStart = false;
-                            TagSize = 0;
-
-                            if (backtickCount == 3)
+                            if (c == -1 ||
+                                c == '\n')
                             {
+                                CodeBlockLanguage = CachedContent.ToString();
+                                CachedContent.Clear();
+
+                                InLineStartCodeBlockStart = false;
+                                InCodeBlock = true;
+                            }
+                            else
+                            {
+                                CachedContent.Append((char)c);
+                            }
+                        }
+                    }
+                    else if (InLineStartListStart)
+                    {
+
+                    }
+                    else if (InHeader)
+                    {
+                        var header = Context.EnsureHeader(HeaderLevel);
+
+                        if (c == -1 ||
+                            c == '\n')
+                        {
+                            InHeader = false;
+                            ReadyForBlock = true;
+
+                            Context.CloseBlock();
+                        }
+                        else
+                        {
+                            header.Append((char)c);
+                        }
+                    }
+                    else if (InCodeBlock)
+                    {
+                        var codeBlock = Context.EnsureCodeBlock(CodeBlockLanguage);
+
+                        if (InBacktick)
+                        {
+                            if (c == -1)
+                            {
+                                if (TagSize < 3)
+                                {
+                                    var backtickCount = TagSize;
+
+                                    InBacktick = false;
+                                    TagSize = 0;
+
+                                    for (int i = 0; i < TagSize; i++)
+                                    {
+                                        codeBlock.Append('`');
+                                    }
+                                }
+                                else
+                                {
+                                    var backtickCount = TagSize;
+
+                                    InBacktick = false;
+                                    TagSize = 0;
+                                    InCodeBlock = false;
+
+                                    var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+
+                                    for (int i = 3; i < backtickCount; i++)
+                                    {
+                                        textRun.Append('`');
+                                    }
+                                }
+                            }
+                            else if (c == '\n')
+                            {
+                                if (TagSize < 3)
+                                {
+                                    var backtickCount = TagSize;
+
+                                    InBacktick = false;
+                                    TagSize = 0;
+
+                                    for (int i = 0; i < TagSize; i++)
+                                    {
+                                        codeBlock.Append('`');
+                                    }
+
+                                    codeBlock.Append('\n');
+                                }
+                                else
+                                {
+                                    var backtickCount = TagSize;
+
+                                    InBacktick = false;
+                                    TagSize = 0;
+                                    InCodeBlock = false;
+
+                                    var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+
+                                    for (int i = 3; i < backtickCount; i++)
+                                    {
+                                        textRun.Append('`');
+                                    }
+                                }
+                            }
+                            else if (c == '`')
+                            {
+                                TagSize++;
+                            }
+                            else
+                            {
+                                var backtickCount = TagSize;
+
+                                InBacktick = false;
                                 TagSize = 0;
+
+                                for (int i = 0; i < TagSize; i++)
+                                {
+                                    codeBlock.Append('`');
+                                }
+
+                                codeBlock.Append((char)c);
+                            }
+                        }
+                        else if (InLineStart)
+                        {
+                            if (c == '`')
+                            {
+                                InBacktick = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '\n')
+                            {
+                                for (int i = 0; i < CachedContent.Length; i++)
+                                {
+                                    codeBlock.Append(CachedContent[0]);
+                                }
+
+                                CachedContent.Clear();
+                                CachedContent.Append('\n');
                             }
                             else
                             {
+                                for (int i = 0; i < CachedContent.Length; i++)
+                                {
+                                    codeBlock.Append(CachedContent[0]);
+                                }
 
+                                CachedContent.Clear();
+                                codeBlock.Append((char)c);
                             }
                         }
-                    }
-                    else
-                    {
-
-                    }
-                }
-                else if (InLineStartListStart)
-                {
-
-                }
-                else if (InHeader)
-                {
-                    var header = Context.EnsureHeader(HeaderLevel);
-
-                    if (c == '\n')
-                    {
-                        InHeader = false;
-                        InLineStart = true;
-                    }
-                    else
-                    {
-                        header.Append(c);
-                    }
-                }
-                else
-                {
-                    inParagraph = true;
-                }
-
-                if (inParagraph)
-                {
-                    var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-
-                    // space and return
-                    if (InSpace)
-                    {
-                        if (c == '\n')
+                        else
                         {
-                            var spaceCount = TagSize;
-
-                            InSpace = false;
-                            TagSize = 0;
-
-                            if (spaceCount >= 2)
+                            if (c == '\n')
                             {
-                                textRun.Append('\n');
+                                CachedContent.Append('\n');
                             }
                             else
                             {
-                                textRun.Append(' ');
+                                codeBlock.Append((char)c);
                             }
-
-                            return;
-                        }
-                        else if (c == ' ')
-                        {
-                            TagSize++;
-                            return;
-                        }
-                        else
-                        {
-                            var spaceCount = TagSize;
-
-                            InSpace = false;
-                            TagSize = 0;
-
-                            for (int i = 0; i < spaceCount; i++)
-                            {
-                                textRun.Append(' ');
-                            }
-                        }
-                    }
-
-                    if (IsEscaping)
-                    {
-                        textRun.Append(c);
-                    }
-                    else if (InBacktick)
-                    {
-                        if (c == '\n')
-                        {
-                            InBacktick = false;
-                            TagSize = 0;
-
-                            InLineStart = true;
-                        }
-                        else if (c == '`')
-                        {
-                            InBacktick = false;
-                            TagSize = 0;
-
-                            textRun.Append('`');
-                            textRun.Append('`');
-                        }
-                        else
-                        {
-                            InBacktick = false;
-                            TagSize = 0;
-
-                            TextRunStyles.Toggle(TextRunStyle.InlineCode);
-
-                            textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                            textRun.Append(c);
-                        }
-                    }
-                    else if (InAsterisk)
-                    {
-                        if (c == '\n')
-                        {
-                            InAsterisk = false;
-                            TagSize = 0;
-
-                            InLineStart = true;
-                        }
-                        else if (c == '*')
-                        {
-                            TagSize++;
-                        }
-                        else
-                        {
-                            if (TagSize >= 2)
-                            {
-                                TextRunStyles.Toggle(TextRunStyle.BoldWithAsterisk);
-                                TagSize -= 2;
-                            }
-
-                            if (TagSize >= 1)
-                            {
-                                TextRunStyles.Toggle(TextRunStyle.ItalicWithAsterisk);
-                                TagSize -= 1;
-                            }
-
-                            InAsterisk = TagSize > 0;
-
-                            textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                            textRun.Append(c);
-                        }
-                    }
-                    else if (InUnderscore)
-                    {
-                        if (c == '\n')
-                        {
-                            InUnderscore = false;
-                            TagSize = 0;
-
-                            InLineStart = true;
-                        }
-                        else if (c == '_')
-                        {
-                            TagSize++;
-                        }
-                        else
-                        {
-                            if (TagSize >= 2)
-                            {
-                                TextRunStyles.Toggle(TextRunStyle.BoldWithUnderscore);
-                                TagSize -= 2;
-                            }
-
-                            if (TagSize >= 1)
-                            {
-                                TextRunStyles.Toggle(TextRunStyle.ItalicWithUnderscore);
-                                TagSize -= 1;
-                            }
-
-                            InUnderscore = TagSize > 0;
-
-                            textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                            textRun.Append(c);
                         }
                     }
                     else
                     {
-                        if (c == '\n')
+                        inParagraph = true;
+                    }
+
+                    if (inParagraph)
+                    {
+                        var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+
+                        // space and return
+                        if (InSpace)
                         {
-                            textRun.Append(' ');
-                            InLineStart = true;
+                            if (c == '\n')
+                            {
+                                var spaceCount = TagSize;
+
+                                InSpace = false;
+                                TagSize = 0;
+
+                                if (spaceCount >= 2)
+                                {
+                                    textRun.Append('\n');
+                                }
+                                else
+                                {
+                                    textRun.Append(' ');
+                                }
+
+                                return;
+                            }
+                            else if (c == ' ')
+                            {
+                                TagSize++;
+                                return;
+                            }
+                            else
+                            {
+                                var spaceCount = TagSize;
+
+                                InSpace = false;
+                                TagSize = 0;
+
+                                for (int i = 0; i < spaceCount; i++)
+                                {
+                                    textRun.Append(' ');
+                                }
+                            }
                         }
-                        else if (c == '`')
+
+                        if (IsEscaping)
                         {
-                            InBacktick = true;
-                            TagSize = 1;
+                            textRun.Append((char)c);
                         }
-                        else if (c == '*')
+                        else if (InBacktick)
                         {
-                            InAsterisk = true;
-                            TagSize = 1;
+                            if (c == '\n')
+                            {
+                                InBacktick = false;
+                                TagSize = 0;
+
+                                ReadyForBlock = true;
+                            }
+                            else if (c == '`')
+                            {
+                                InBacktick = false;
+                                TagSize = 0;
+
+                                textRun.Append('`');
+                                textRun.Append('`');
+                            }
+                            else
+                            {
+                                InBacktick = false;
+                                TagSize = 0;
+
+                                TextRunStyles.Toggle(TextRunStyle.InlineCode);
+
+                                textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                textRun.Append((char)c);
+                            }
                         }
-                        else if (c == '_')
+                        else if (InAsterisk)
                         {
-                            InUnderscore = true;
-                            TagSize = 1;
+                            if (c == '\n')
+                            {
+                                InAsterisk = false;
+                                TagSize = 0;
+
+                                ReadyForBlock = true;
+                            }
+                            else if (c == '*')
+                            {
+                                TagSize++;
+                            }
+                            else
+                            {
+                                if (TagSize >= 2)
+                                {
+                                    TextRunStyles.Toggle(TextRunStyle.BoldWithAsterisk);
+                                    TagSize -= 2;
+                                }
+
+                                if (TagSize >= 1)
+                                {
+                                    TextRunStyles.Toggle(TextRunStyle.ItalicWithAsterisk);
+                                    TagSize -= 1;
+                                }
+
+                                InAsterisk = TagSize > 0;
+
+                                textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                textRun.Append((char)c);
+                            }
                         }
-                        else if (c == '!')
+                        else if (InUnderscore)
                         {
-                            InExclamationMark = true;
-                            TagSize = 1;
-                        }
-                        else if (c == ' ')
-                        {
-                            InSpace = true;
-                            TagSize = 1;
-                        }
-                        else if (c == '\\')
-                        {
-                            IsEscaping = true;
+                            if (c == '\n')
+                            {
+                                InUnderscore = false;
+                                TagSize = 0;
+
+                                ReadyForBlock = true;
+                            }
+                            else if (c == '_')
+                            {
+                                TagSize++;
+                            }
+                            else
+                            {
+                                if (TagSize >= 2)
+                                {
+                                    TextRunStyles.Toggle(TextRunStyle.BoldWithUnderscore);
+                                    TagSize -= 2;
+                                }
+
+                                if (TagSize >= 1)
+                                {
+                                    TextRunStyles.Toggle(TextRunStyle.ItalicWithUnderscore);
+                                    TagSize -= 1;
+                                }
+
+                                InUnderscore = TagSize > 0;
+
+                                textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                textRun.Append((char)c);
+                            }
                         }
                         else
                         {
-                            textRun.Append(c);
+                            if (c == '\n')
+                            {
+                                textRun.Append(' ');
+                                ReadyForBlock = true;
+                            }
+                            else if (c == '`')
+                            {
+                                InBacktick = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '*')
+                            {
+                                InAsterisk = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '_')
+                            {
+                                InUnderscore = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '!')
+                            {
+                                InExclamationMark = true;
+                                TagSize = 1;
+                            }
+                            else if (c == ' ')
+                            {
+                                InSpace = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '\\')
+                            {
+                                IsEscaping = true;
+                            }
+                            else
+                            {
+                                textRun.Append((char)c);
+                            }
                         }
                     }
+                }
+                finally
+                {
+                    InLineStart = c == '\n';
                 }
             }
 
@@ -423,7 +608,7 @@ namespace Docora.Parsing
             {
                 InCR = false;
                 IsEscaping = false;
-                InLineStart = false;
+                ReadyForBlock = false;
                 InLineStartPoundSign = false;
                 InLineStartListStart = false;
                 InHeader = false;

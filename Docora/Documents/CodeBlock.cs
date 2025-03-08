@@ -12,6 +12,8 @@ namespace Docora.Documents
 
         public string? Language { get; set; }
 
+        public bool IsContentEmpty => _buffer.Length == 0;
+
         public string Content
         {
             get
@@ -44,8 +46,13 @@ namespace Docora.Documents
                 sb.Append("```");
                 sb.Append(Language);
                 sb.Append('\n');
-                sb.Append(Content);
-                sb.Append('\n');
+
+                if (!IsContentEmpty)
+                {
+                    sb.Append(Content);
+                    sb.Append('\n');
+                }
+
                 sb.Append("```");
 
                 return sb.ToString();

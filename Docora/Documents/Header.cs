@@ -27,6 +27,8 @@ namespace Docora.Documents
             }
         }
 
+        public bool IsContentEmpty => _buffer.Length == 0;
+
         public string Content
         {
             get
