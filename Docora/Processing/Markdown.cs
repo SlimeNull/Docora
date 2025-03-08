@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -253,16 +254,133 @@ namespace Docora.Processing
 
         public static bool ProcessSuperscript(this Paragraph paragraph, MarkdownConfig config)
         {
-            return paragraph.ProcessForTagPairs(MatchStrikethroughTag, 
+            return paragraph.ProcessForTagPairs(MatchStrikethroughTag,
                 new MarkdownTextRangePropertyAndValue(Inline.BaselineAlignmentProperty, BaselineAlignment.Superscript, BaselineAlignment.Baseline),
                 new MarkdownTextRangePropertyAndValue(TextElement.FontSizeProperty, config.SuperscriptFontSize, config.FontSize));
         }
 
         public static bool ProcessSubscript(this Paragraph paragraph, MarkdownConfig config)
         {
-            return paragraph.ProcessForTagPairs(MatchStrikethroughTag, 
+            return paragraph.ProcessForTagPairs(MatchStrikethroughTag,
                 new MarkdownTextRangePropertyAndValue(Inline.BaselineAlignmentProperty, BaselineAlignment.Subscript, BaselineAlignment.Baseline),
                 new MarkdownTextRangePropertyAndValue(TextElement.FontSizeProperty, config.SubscriptFontSize, config.FontSize));
+        }
+
+        public static bool ProcessList(this RichTextBox richTextBox, MarkdownConfig config)
+        {
+            var document = richTextBox.Document;
+            var textPointer = richTextBox.CaretPosition;
+            var paragraph = textPointer.Paragraph;
+            if (paragraph is null)
+            {
+                return false;
+            }
+
+            if (textPointer.Parent is Run run &&
+                paragraph.Inlines.LastInline == run)
+            {
+                var offset = run.ContentStart.GetOffsetToPosition(textPointer);
+
+                if (run.Text.Length < 1)
+                {
+                    return false;
+                }
+
+                if (char.IsAsciiDigit(run.Text[0]))
+                {
+                    int index = 1;
+                    while (index < run.Text.Length &&
+                           char.IsAsciiDigit(run.Text[index]))
+                    {
+                        if (index > offset)
+                        {
+                            return false;
+                        }
+
+                        index++;
+                    }
+
+                    if (index > offset ||
+                        index >= run.Text.Length ||
+                        run.Text[index] != '.')
+                    {
+                        return false;
+                    }
+
+                    index++;
+                    if (index > offset ||
+                        index >= run.Text.Length ||
+                        run.Text[index] != ' ')
+                    {
+                        return false;
+                    }
+
+                    List list = new List()
+                    {
+                        MarkerStyle = TextMarkerStyle.Decimal,
+                    };
+
+                    ListItem listItem = new ListItem();
+                    list.ListItems.Add(listItem);
+
+                    var afterRun = run.ElementEnd.InsertParagraphBreak();
+                    document.Blocks.InsertAfter(paragraph, list);
+
+                    if (run.PreviousInline is LineBreak previousLineBreak)
+                    {
+                        paragraph.Inlines.Remove(previousLineBreak);
+                    }
+                    paragraph.Inlines.Remove(run);
+
+                    if (paragraph.Inlines.FirstInline is not Run paragraphFirstInline ||
+                        string.IsNullOrEmpty(paragraphFirstInline.Text))
+                    {
+                        document.Blocks.Remove(paragraph);
+                    }
+
+                    richTextBox.CaretPosition = listItem.ContentStart;
+
+                    return true;
+                }
+                else if (run.Text[0] == '-')
+                {
+                    if (offset < 2 ||
+                        run.Text.Length < 2 ||
+                        run.Text[1] != ' ')
+                    {
+                        return false;
+                    }
+
+                    List list = new List()
+                    {
+                        MarkerStyle = TextMarkerStyle.Circle,
+                    };
+
+                    ListItem listItem = new ListItem();
+                    list.ListItems.Add(listItem);
+
+                    var afterRun = run.ElementEnd.InsertParagraphBreak();
+                    document.Blocks.InsertAfter(paragraph, list);
+
+                    if (run.PreviousInline is LineBreak previousLineBreak)
+                    {
+                        paragraph.Inlines.Remove(previousLineBreak);
+                    }
+                    paragraph.Inlines.Remove(run);
+
+                    if (paragraph.Inlines.FirstInline is not Run paragraphFirstInline ||
+                        string.IsNullOrEmpty(paragraphFirstInline.Text))
+                    {
+                        document.Blocks.Remove(paragraph);
+                    }
+
+                    richTextBox.CaretPosition = listItem.ContentStart;
+
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

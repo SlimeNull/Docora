@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Docora"
+        xmlns:controls="clr-namespace:Docora.Controls"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
@@ -11,9 +12,8 @@
             <ColumnDefinition/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <RichTextBox Name="rtb"
-                     PreviewKeyDown="rtb_PreviewKeyDown"
-                     TextChanged="rtb_TextChanged"/>
+        <controls:InteractiveEditor x:Name="editor"
+                                    MarkdownChanged="InteractiveEditor_MarkdownChanged"/>
         <Grid Grid.Column="1">
             <TextBox Name="tb"
                      TextWrapping="Wrap"/>

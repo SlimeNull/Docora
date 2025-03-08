@@ -19,4 +19,14 @@
     <Page Remove="Extensions\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Strings\" />
+    <Folder Include="Themes\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Antelcat.I18N.WPF" Version="1.1.0" />
+    <PackageReference Include="EleCho.WpfSuite" Version="0.10.7" />
+  </ItemGroup>
+
 </Project>

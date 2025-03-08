@@ -20,69 +20,13 @@ namespace Docora;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private bool _userChanging = false;
-    private Paragraph? _lastOperatingParagraph;
-
-
-    private TextPointer? _testTextPointer;
-
     public MainWindow()
     {
         InitializeComponent();
     }
 
-    private static void RenderParagraph(Paragraph paragraph)
+    private void InteractiveEditor_MarkdownChanged(object sender, EventArgs e)
     {
-        var config = MarkdownConfig.Default;
-
-        paragraph.Prepare(config);
-
-        var headingProcessed =
-            paragraph.ProcessHeading(config);
-
-        if (!headingProcessed)
-        {
-            paragraph.ProcessBold();
-            paragraph.ProcessItalic();
-            paragraph.ProcessStrikethrough();
-            paragraph.ProcessSuperscript(config);
-            paragraph.ProcessSubscript(config);
-        }
-    }
-
-    private void rtb_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        _userChanging = true;
-        _lastOperatingParagraph = rtb.CaretPosition.Paragraph;
-    }
-
-    private void rtb_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (!_userChanging)
-        {
-            return;
-        }
-
-        _userChanging = false;
-
-        if (e.Changes.LastOrDefault() is not { } lastChange)
-        {
-            return;
-        }
-
-        var currentParagraph = rtb.CaretPosition.Paragraph;
-
-        if (_lastOperatingParagraph is not null &&
-            _lastOperatingParagraph != currentParagraph)
-        {
-            RenderParagraph(_lastOperatingParagraph);
-        }
-
-        if (currentParagraph is Paragraph paragraph)
-        {
-            RenderParagraph(paragraph);
-        }
-
-        tb.Text = XamlWriter.Save(rtb.Document);
+        tb.Text = XamlWriter.Save(editor.rtb.Document);
     }
 }
