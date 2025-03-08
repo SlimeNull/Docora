@@ -9,8 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Contexts\" />
-    <Folder Include="Extensions\" />
+    <Compile Remove="Contexts\**" />
+    <Compile Remove="Extensions\**" />
+    <EmbeddedResource Remove="Contexts\**" />
+    <EmbeddedResource Remove="Extensions\**" />
+    <None Remove="Contexts\**" />
+    <None Remove="Extensions\**" />
+    <Page Remove="Contexts\**" />
+    <Page Remove="Extensions\**" />
   </ItemGroup>
 
 </Project>
