@@ -14,6 +14,7 @@ namespace Docora.Parsing
             public bool InLineStart { get; set; }
             public bool InLineStartPoundSign { get; set; }
             public bool InLineStartListStart { get; set; }
+            public bool InLineStartCodeBlockStart { get; set; }
             public bool InHeader { get; set; }
             public bool InList { get; set; }
 
@@ -31,6 +32,7 @@ namespace Docora.Parsing
             public bool InExclamationMark { get; set; }
             public bool InPipe { get; set; }
             public bool InNumber { get; set; }
+            public bool InSpace { get; set; }
 
             public int TagSize { get; set; }
             public int HeaderLevel { get; set; }
@@ -81,9 +83,10 @@ namespace Docora.Parsing
                         InLineStartPoundSign = true;
                         TagSize = 1;
                     }
-                    else if (c == '\\')
+                    else if (c == '`')
                     {
-                        IsEscaping = true;
+                        InLineStartCodeBlockStart = true;
+                        TagSize = 1;
                     }
                     else if (char.IsNumber(c))
                     {
@@ -97,7 +100,22 @@ namespace Docora.Parsing
                 }
                 else if (InLineStartPoundSign)
                 {
-                    if (c == '#')
+                    if (c == '\n')
+                    {
+                        var poundSignCount = TagSize;
+
+                        InLineStartPoundSign = false;
+                        TagSize = 0;
+
+                        var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                        for (int i = 0; i < poundSignCount; i++)
+                        {
+                            textRun.Append('#');
+                        }
+
+                        textRun.Append(' ');
+                    }
+                    else if (c == '#')
                     {
                         TagSize++;
                     }
@@ -132,6 +150,66 @@ namespace Docora.Parsing
                         textRun.Append(c);
                     }
                 }
+                else if (InLineStartCodeBlockStart)
+                {
+                    // 还在 ` 中, 累计 `
+                    if (TagSize > 0)
+                    {
+                        if (c == '\n')
+                        {
+                            var poundSignCount = TagSize;
+
+                            InLineStartPoundSign = false;
+                            TagSize = 0;
+
+                            var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                            for (int i = 0; i < poundSignCount; i++)
+                            {
+                                textRun.Append('`');
+                            }
+
+                            textRun.Append(' ');
+                        }
+                        else if (c == '`')
+                        {
+                            TagSize++;
+
+                            if (TagSize > 3)
+                            {
+                                var backtickCount = TagSize;
+
+                                InLineStartCodeBlockStart = false;
+                                TagSize = 0;
+
+                                var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                for (int i = 0; i < backtickCount; i++)
+                                {
+                                    textRun.Append('`');
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var backtickCount = TagSize;
+
+                            InLineStartCodeBlockStart = false;
+                            TagSize = 0;
+
+                            if (backtickCount == 3)
+                            {
+                                TagSize = 0;
+                            }
+                            else
+                            {
+
+                            }
+                        }
+                    }
+                    else
+                    {
+
+                    }
+                }
                 else if (InLineStartListStart)
                 {
 
@@ -158,6 +236,46 @@ namespace Docora.Parsing
                 if (inParagraph)
                 {
                     var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+
+                    // space and return
+                    if (InSpace)
+                    {
+                        if (c == '\n')
+                        {
+                            var spaceCount = TagSize;
+
+                            InSpace = false;
+                            TagSize = 0;
+
+                            if (spaceCount >= 2)
+                            {
+                                textRun.Append('\n');
+                            }
+                            else
+                            {
+                                textRun.Append(' ');
+                            }
+
+                            return;
+                        }
+                        else if (c == ' ')
+                        {
+                            TagSize++;
+                            return;
+                        }
+                        else
+                        {
+                            var spaceCount = TagSize;
+
+                            InSpace = false;
+                            TagSize = 0;
+
+                            for (int i = 0; i < spaceCount; i++)
+                            {
+                                textRun.Append(' ');
+                            }
+                        }
+                    }
 
                     if (IsEscaping)
                     {
@@ -261,6 +379,7 @@ namespace Docora.Parsing
                     {
                         if (c == '\n')
                         {
+                            textRun.Append(' ');
                             InLineStart = true;
                         }
                         else if (c == '`')
@@ -282,6 +401,15 @@ namespace Docora.Parsing
                         {
                             InExclamationMark = true;
                             TagSize = 1;
+                        }
+                        else if (c == ' ')
+                        {
+                            InSpace = true;
+                            TagSize = 1;
+                        }
+                        else if (c == '\\')
+                        {
+                            IsEscaping = true;
                         }
                         else
                         {

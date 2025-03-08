@@ -2,7 +2,7 @@
 
 namespace Docora.Documents
 {
-    public sealed class Header : Block
+    public sealed class CodeBlock : Block
     {
         private readonly StringBuilder _buffer = new StringBuilder();
 
@@ -10,22 +10,7 @@ namespace Docora.Documents
         private int _cachedContentVersion = -1;
         private string? _cachedContent;
 
-
-        private int _level = 1;
-        public int Level
-        {
-            get => _level;
-            set
-            {
-                if (_level < 1 ||
-                    _level > 6)
-                {
-                    throw new ArgumentOutOfRangeException();
-                }
-
-                _level = value;
-            }
-        }
+        public string? Language { get; set; }
 
         public string Content
         {
@@ -55,11 +40,13 @@ namespace Docora.Documents
         {
             get
             {
-                StringBuilder sb = new StringBuilder(Content?.Length ?? 0 + Level + 1);
-
-                sb.Append('#', _level);
-                sb.Append(' ');
+                StringBuilder sb = new StringBuilder();
+                sb.Append("```");
+                sb.Append(Language);
+                sb.Append('\n');
                 sb.Append(Content);
+                sb.Append('\n');
+                sb.Append("```");
 
                 return sb.ToString();
             }
