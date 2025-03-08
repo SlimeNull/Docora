@@ -26,12 +26,12 @@ namespace Docora.Models
         public static MarkdownConfig Default { get; } = new MarkdownConfig()
         {
             FontSize = 14,
-            Heading1FontSize = 42,
-            Heading2FontSize = 36,
-            Heading3FontSize = 18,
-            Heading4FontSize = 16,
-            Heading5FontSize = 14,
-            Heading6FontSize = 12,
+            Heading1FontSize = 32,
+            Heading2FontSize = 25,
+            Heading3FontSize = 22,
+            Heading4FontSize = 18,
+            Heading5FontSize = 16,
+            Heading6FontSize = 16,
             SuperscriptFontSize = 8,
             SubscriptFontSize = 8,
             Heading1FontWeight = FontWeights.Bold,

@@ -135,6 +135,29 @@ namespace Docora.Utilities
 
                     UpdateParagraph(flowParagraph, paragraph, config);
                 }
+                else if (document.Blocks[blockIndex] is Documents.Header header)
+                {
+                    if (block is Paragraph flowParagraph)
+                    {
+                        block = block.NextBlock;
+                    }
+                    else
+                    {
+                        var newFlowParagraph = new Paragraph();
+                        flowParagraph = newFlowParagraph;
+
+                        if (block is not null)
+                        {
+                            flowDocument.Blocks.InsertAfter(block, newFlowParagraph);
+                        }
+                        else
+                        {
+                            flowDocument.Blocks.Add(newFlowParagraph);
+                        }
+                    }
+
+                    UpdateHeader(flowParagraph, header, config);
+                }
                 else
                 {
                     break;
