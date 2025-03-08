@@ -13,7 +13,7 @@
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
         <controls:InteractiveEditor x:Name="editor"
-                                    MarkdownChanged="InteractiveEditor_MarkdownChanged"/>
+                                    DocumentChanged="InteractiveEditor_DocumentChanged"/>
         <Grid Grid.Column="1">
             <TextBox Name="tb"
                      TextWrapping="Wrap"/>

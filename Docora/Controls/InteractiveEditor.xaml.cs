@@ -24,7 +24,7 @@ namespace Docora.Controls
     {
         private bool _userChanging = false;
         private Paragraph? _lastOperatingParagraph;
-        private string? _cachedMarkdown;
+        private Documents.MarkdownDocument? _cachedMarkdown;
         private MarkdownConfig _config = MarkdownConfig.Default;
 
         public InteractiveEditor()
@@ -32,12 +32,19 @@ namespace Docora.Controls
             InitializeComponent();
         }
 
-        public string Markdown => _cachedMarkdown ??= BuildMarkdown();
-        public event EventHandler? MarkdownChanged;
+        public Documents.MarkdownDocument Document => _cachedMarkdown ??= BuildMarkdown();
+        public event EventHandler? DocumentChanged;
 
-        private string BuildMarkdown()
+        private Documents.MarkdownDocument BuildMarkdown()
         {
-            throw new NotImplementedException();
+            var result = new Documents.MarkdownDocument();
+
+            foreach (var block in rtb.Document.Blocks)
+            {
+
+            }
+
+            return result;
         }
 
         private static void ProcessParagraph(Paragraph paragraph, MarkdownConfig config)
@@ -92,7 +99,7 @@ namespace Docora.Controls
 
             }
 
-            MarkdownChanged?.Invoke(this, EventArgs.Empty);
+            DocumentChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

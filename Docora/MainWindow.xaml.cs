@@ -25,7 +25,7 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private void InteractiveEditor_MarkdownChanged(object sender, EventArgs e)
+    private void InteractiveEditor_DocumentChanged(object sender, EventArgs e)
     {
         tb.Text = XamlWriter.Save(editor.rtb.Document);
     }
