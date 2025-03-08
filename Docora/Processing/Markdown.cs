@@ -353,7 +353,7 @@ namespace Docora.Processing
 
                     List list = new List()
                     {
-                        MarkerStyle = TextMarkerStyle.Circle,
+                        MarkerStyle = TextMarkerStyle.Disc,
                     };
 
                     ListItem listItem = new ListItem();
