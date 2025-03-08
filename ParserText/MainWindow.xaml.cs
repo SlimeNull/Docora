@@ -29,7 +29,7 @@ namespace ParserText
             var document = MarkdownParser.Parse(input.Text);
             output.Text = document.Markdown;
 
-            rendered.Document = MarkdownUtils.CreateFlowDocument(document, MarkdownConfig.Default);
+            MarkdownUtils.UpdateDocument(rendered.Document, document, MarkdownConfig.Default);
         }
     }
 }
