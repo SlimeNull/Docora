@@ -21,6 +21,7 @@
                  TextChanged="input_TextChanged" />
         <TextBox Name="output"
                  BorderThickness="0 0 1 0"
+                 AcceptsReturn="True"
                  Grid.Row="1"
                  IsReadOnly="True"/>
         <RichTextBox Name="rendered"

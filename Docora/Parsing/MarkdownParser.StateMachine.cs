@@ -24,6 +24,7 @@ namespace Docora.Parsing
             public bool InBacktick { get; set; }
             public bool InAsterisk { get; set; }
             public bool InUnderscore { get; set; }
+            public bool InTilde { get; set; }
             public bool InCurlyBraces { get; set; }
             public bool InBrackets { get; set; }
             public bool InParentheses { get; set; }
@@ -413,8 +414,10 @@ namespace Docora.Parsing
                         inParagraph = true;
                     }
 
-                    if (inParagraph)
+                    while (inParagraph)
                     {
+                        inParagraph = false;
+
                         var textRun = Context.EnsureParagraphTextRun(TextRunStyles);
 
                         // space and return
@@ -486,7 +489,7 @@ namespace Docora.Parsing
                                 TextRunStyles.Toggle(TextRunStyle.InlineCode);
 
                                 textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                                textRun.Append((char)c);
+                                inParagraph = true;
                             }
                         }
                         else if (InAsterisk)
@@ -519,7 +522,7 @@ namespace Docora.Parsing
                                 InAsterisk = TagSize > 0;
 
                                 textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                                textRun.Append((char)c);
+                                inParagraph = true;
                             }
                         }
                         else if (InUnderscore)
@@ -552,7 +555,48 @@ namespace Docora.Parsing
                                 InUnderscore = TagSize > 0;
 
                                 textRun = Context.EnsureParagraphTextRun(TextRunStyles);
-                                textRun.Append((char)c);
+                                inParagraph = true;
+                            }
+                        }
+                        else if (InTilde)
+                        {
+                            if (c == '\n')
+                            {
+                                InTilde = false;
+                                TagSize = 0;
+
+                                ReadyForBlock = true;
+                            }
+                            else if (c == '~')
+                            {
+                                TagSize++;
+                            }
+                            else
+                            {
+                                if (TagSize == 2)
+                                {
+                                    InTilde = false;
+                                    TagSize = 0;
+
+                                    TextRunStyles.Toggle(TextRunStyle.Strikethrough);
+
+                                    textRun = Context.EnsureParagraphTextRun(TextRunStyles);
+                                    inParagraph = true;
+                                }
+                                else
+                                {
+                                    var tildeCount = TagSize;
+
+                                    InTilde = false;
+                                    TagSize = 0;
+
+                                    for (int i = 0; i < tildeCount; i++)
+                                    {
+                                        textRun.Append('~');
+                                    }
+
+                                    inParagraph = true;
+                                }
                             }
                         }
                         else
@@ -575,6 +619,11 @@ namespace Docora.Parsing
                             else if (c == '_')
                             {
                                 InUnderscore = true;
+                                TagSize = 1;
+                            }
+                            else if (c == '~')
+                            {
+                                InTilde = true;
                                 TagSize = 1;
                             }
                             else if (c == '!')
