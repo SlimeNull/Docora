@@ -11,7 +11,13 @@
                      x:FieldModifier="public"
                      PreviewKeyDown="rtb_PreviewKeyDown"
                      TextChanged="rtb_TextChanged">
-
+            <FlowDocument>
+                <Paragraph BorderThickness="1"
+                           BorderBrush="Gray"
+                           Padding="8">
+                    fjwoaeif
+                </Paragraph>
+            </FlowDocument>
         </RichTextBox>
     </Grid>
 </UserControl>

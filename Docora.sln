@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Docora", "Docora\Docora.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParserText", "ParserText\ParserText.csproj", "{2FA73072-3F91-4D19-AAC2-78D312456BE2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibMarkdownEditor", "LibMarkdownEditor\LibMarkdownEditor.csproj", "{AB24F441-7117-470D-91B0-6A52F77911D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomTextEditorTest", "CustomTextEditorTest\CustomTextEditorTest.csproj", "{9CFE6E5E-F169-49D1-8B2D-C810CAF197D9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{2FA73072-3F91-4D19-AAC2-78D312456BE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2FA73072-3F91-4D19-AAC2-78D312456BE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2FA73072-3F91-4D19-AAC2-78D312456BE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB24F441-7117-470D-91B0-6A52F77911D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB24F441-7117-470D-91B0-6A52F77911D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB24F441-7117-470D-91B0-6A52F77911D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB24F441-7117-470D-91B0-6A52F77911D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CFE6E5E-F169-49D1-8B2D-C810CAF197D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CFE6E5E-F169-49D1-8B2D-C810CAF197D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CFE6E5E-F169-49D1-8B2D-C810CAF197D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CFE6E5E-F169-49D1-8B2D-C810CAF197D9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

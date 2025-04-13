@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
@@ -47,27 +46,61 @@ namespace Docora.Controls
             return result;
         }
 
-        private static void ProcessParagraph(Paragraph paragraph, MarkdownConfig config)
-        {
-            paragraph.Prepare(config);
-
-            var headingProcessed =
-            paragraph.ProcessHeading(config);
-
-            if (!headingProcessed)
-            {
-                paragraph.ProcessBold();
-                paragraph.ProcessItalic();
-                paragraph.ProcessStrikethrough();
-                paragraph.ProcessSuperscript(config);
-                paragraph.ProcessSubscript(config);
-            }
-        }
-
         private void rtb_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             _userChanging = true;
             _lastOperatingParagraph = rtb.CaretPosition.Paragraph;
+
+            if (e.Key == Key.Enter)
+            {
+                var caretPosition = rtb.CaretPosition;
+                if (caretPosition.Paragraph is null)
+                {
+                    return;
+                }
+
+                if (!Keyboard.IsKeyDown(Key.LeftShift))
+                {
+                    if (caretPosition.Paragraph.Parent is ListItem listItem)
+                    {
+                        var newListItem = new ListItem();
+                        var newListItemParagraph = new Paragraph();
+
+                        newListItem.Blocks.Add(newListItemParagraph);
+                        listItem.List.ListItems.InsertAfter(listItem, newListItem);
+
+                        rtb.CaretPosition = newListItemParagraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    }
+                    else
+                    {
+                        var newParagraph = new Paragraph();
+                        caretPosition.Paragraph.SiblingBlocks.InsertAfter(caretPosition.Paragraph, newParagraph);
+
+                        rtb.CaretPosition = newParagraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    }
+                }
+                else
+                {
+                    if (caretPosition.Paragraph.Parent is ListItem listItem)
+                    {
+                        var newParagraph = new Paragraph();
+                        caretPosition.Paragraph.SiblingBlocks.InsertAfter(caretPosition.Paragraph, newParagraph);
+
+                        rtb.CaretPosition = newParagraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+                    }
+                    else
+                    {
+                        rtb.CaretPosition = rtb.CaretPosition.InsertLineBreak();
+                    }
+                }
+
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Back)
+            {
+                e.Handled =
+                    MarkdownProcessing.ProcessHeaderDeleting(rtb, _config);
+            }
         }
 
         private void rtb_TextChanged(object sender, TextChangedEventArgs e)
@@ -78,28 +111,50 @@ namespace Docora.Controls
             }
 
             _userChanging = false;
-
-            if (e.Changes.LastOrDefault() is not { } lastChange)
-            {
-                return;
-            }
-
             var currentParagraph = rtb.CaretPosition.Paragraph;
 
             if (_lastOperatingParagraph is not null &&
                 _lastOperatingParagraph != currentParagraph)
             {
-                ProcessParagraph(_lastOperatingParagraph, _config);
+                if (_lastOperatingParagraph.Inlines.FirstInline?.Tag is not MarkdownTag ||
+                    _lastOperatingParagraph.Inlines.FirstInline?.Tag is MarkdownParagraphTag)
+                {
+                    MarkdownProcessing.ApplyParagraphStyle(_lastOperatingParagraph, _config);
+                }
             }
 
             if (currentParagraph is Paragraph paragraph)
             {
-                ProcessParagraph(paragraph, _config);
-                rtb.ProcessList(_config);
+                bool anyBlockCreated =
+                    MarkdownProcessing.ProcessHeaderCreation(rtb, _config) ||
+                    MarkdownProcessing.ProcessListCreation(rtb, _config);
 
+                if (!anyBlockCreated)
+                {
+                    if (paragraph.Inlines.FirstInline?.Tag is not MarkdownTag ||
+                        paragraph.Inlines.FirstInline?.Tag is MarkdownParagraphTag)
+                    {
+                        MarkdownProcessing.ApplyParagraphStyle(paragraph, _config);
+                    }
+                }
             }
 
             DocumentChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    public class MarkdownTag
+    {
+
+    }
+
+    public class MarkdownHeaderTag : MarkdownTag
+    {
+        public int Level { get; set; }
+    }
+
+    public class MarkdownParagraphTag : MarkdownTag
+    {
+
     }
 }
