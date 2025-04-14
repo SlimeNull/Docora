@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
+using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -7,6 +9,21 @@ namespace LibMarkdownEditor
 {
     public class TextEditArea : ImeEditArea
     {
+        private readonly TextBlock _renderer;
+        private readonly StringBuilder _textBuilder;
+
+        private Point _textPoint;
+        private int _editIndex;
+        private bool _overwriteMode;
+
+        public TextEditArea()
+        {
+            _renderer = new TextBlock();
+            _textBuilder = new StringBuilder();
+
+            AddVisualChild(_renderer);
+        }
+
         public string Text
         {
             get { return (string)GetValue(TextProperty); }
@@ -31,71 +48,153 @@ namespace LibMarkdownEditor
             set { SetValue(HorizontalContentAlignmentProperty, value); }
         }
 
-        private FormattedText CreateFormattedText(double containerWidth, double containerHeight)
+        protected override int VisualChildrenCount => 1;
+
+        protected override Visual GetVisualChild(int index)
         {
-            var result = new FormattedText(Text, CultureInfo.CurrentCulture, FlowDirection, FontFamily?.GetTypefaces()?.FirstOrDefault(), FontSize, Foreground, 1);
-
-            result.SetFontStyle(FontStyle);
-            result.SetFontWeight(FontWeight);
-
-            if (Wrapping)
+            if (index == 0)
             {
-                result.MaxTextWidth = containerWidth;
-                result.MaxTextHeight = containerHeight;
+                return _renderer;
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        protected override void OnMouseDown(MouseButtonEventArgs e)
+        {
+            var pointRelatedRenderer = e.GetPosition(_renderer);
+            var textPointer = _renderer.GetPositionFromPoint(pointRelatedRenderer, true);
+
+            _editIndex = _renderer.ContentStart
+                .GetInsertionPosition(System.Windows.Documents.LogicalDirection.Forward)
+                .GetOffsetToPosition(textPointer);
+
+            InvalidateVisual();
+
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.Back)
+            {
+                e.Handled = true;
+
+                if (_editIndex > 0)
+                {
+                    _editIndex--;
+                    _textBuilder.Remove(_editIndex, 1);
+
+                    Text = _textBuilder.ToString();
+                }
+            }
+            else if (e.Key == Key.Left)
+            {
+                e.Handled = true;
+
+                if (_editIndex > 0)
+                {
+                    _editIndex--;
+                    InvalidateVisual();
+                }
+            }
+            else if (e.Key == Key.Right)
+            {
+                e.Handled = true;
+
+                if (_editIndex < _textBuilder.Length)
+                {
+                    _editIndex++;
+                    InvalidateVisual();
+                }
+            }
+            else if (e.Key == Key.Home)
+            {
+                e.Handled = true;
+                _editIndex = 0;
+                InvalidateVisual();
+            }
+            else if (e.Key == Key.End)
+            {
+                e.Handled = true;
+                _editIndex = _textBuilder.Length;
+                InvalidateVisual();
             }
 
-            return result;
+            base.OnKeyDown(e);
         }
 
         protected override void OnTextInput(TextCompositionEventArgs e)
         {
-            Text += e.Text;
+            if (_editIndex < 0)
+            {
+                _editIndex = 0;
+            }
+            else if (_editIndex > _textBuilder.Length)
+            {
+                _editIndex = _textBuilder.Length;
+            }
+
+            if (!_overwriteMode)
+            {
+                _textBuilder.Insert(_editIndex, e.Text);
+                _editIndex += e.Text.Length;
+            }
+            else
+            {
+                _textBuilder.Remove(_editIndex, Math.Min(e.Text.Length, _textBuilder.Length - _editIndex));
+                _textBuilder.Insert(_editIndex, e.Text);
+                _editIndex += e.Text.Length;
+            }
+
+            Text = _textBuilder.ToString();
 
             base.OnTextInput(e);
         }
 
         protected override Size MeasureOverride(Size availableSize)
         {
-            var formattedText = CreateFormattedText(availableSize.Width, availableSize.Height);
+            _renderer.Text = Text;
+            _renderer.TextWrapping = Wrapping ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            _renderer.Measure(availableSize);
 
-            return new Size(
-                Math.Min(availableSize.Width, formattedText.Width),
-                Math.Min(availableSize.Height, formattedText.Height));
+            return _renderer.DesiredSize;
         }
 
-        protected override void OnRender(DrawingContext drawingContext)
+        protected override Size ArrangeOverride(Size finalSize)
         {
-            base.OnRender(drawingContext);
-
             var actualWidth = ActualWidth;
             var actualHeight = ActualHeight;
 
             var verticalContentAlignment = VerticalContentAlignment;
             var horizontalContentAlignment = HorizontalContentAlignment;
 
-            var formattedText = CreateFormattedText(ActualWidth, ActualHeight);
-            var textPoint = new Point(0, 0);
-
+            _textPoint = new Point(0, 0);
             if (horizontalContentAlignment == HorizontalAlignment.Center)
             {
-                textPoint.X = (actualWidth - formattedText.Width) / 2;
+                _textPoint.X = (actualWidth - _renderer.DesiredSize.Width) / 2;
             }
             else if (horizontalContentAlignment == HorizontalAlignment.Right)
             {
-                textPoint.X = actualWidth - formattedText.Width;
+                _textPoint.X = actualWidth - _renderer.DesiredSize.Width;
             }
 
             if (verticalContentAlignment == VerticalAlignment.Center)
             {
-                textPoint.Y = (actualHeight - formattedText.Height) / 2;
+                _textPoint.Y = (actualHeight - _renderer.DesiredSize.Height) / 2;
             }
             else if (verticalContentAlignment == VerticalAlignment.Bottom)
             {
-                textPoint.Y = actualHeight - formattedText.Height;
+                _textPoint.Y = actualHeight - _renderer.DesiredSize.Height;
             }
 
-            drawingContext.DrawText(formattedText, textPoint);
+            _renderer.Arrange(new Rect(_textPoint, _renderer.DesiredSize));
+
+            return base.ArrangeOverride(finalSize);
         }
+
         protected override Point GetEditorLeftTop()
         {
             return default;
@@ -103,69 +202,42 @@ namespace LibMarkdownEditor
 
         protected override Point GetCaretLeftTop()
         {
-            var actualWidth = ActualWidth;
-            var actualHeight = ActualHeight;
+            var textPointer = _renderer.ContentStart
+                .GetInsertionPosition(System.Windows.Documents.LogicalDirection.Forward)
+                .GetPositionAtOffset(_editIndex, System.Windows.Documents.LogicalDirection.Forward);
 
-            var verticalContentAlignment = VerticalContentAlignment;
-            var horizontalContentAlignment = HorizontalContentAlignment;
+            var rect = textPointer.GetCharacterRect(System.Windows.Documents.LogicalDirection.Backward);
 
-            var formattedText = CreateFormattedText(ActualWidth, ActualHeight);
-            var textWidth = formattedText.Width;
-            var textHeight = formattedText.Height;
-
-            if (textHeight == 0)
+            if (double.IsFinite(rect.Right) &&
+                double.IsFinite(rect.Top))
             {
-                textHeight = FontSize;
-            }
-            
-            var textPoint = new Point(0, 0);
-
-            if (horizontalContentAlignment == HorizontalAlignment.Center)
-            {
-                textPoint.X = (actualWidth - textWidth) / 2;
-            }
-            else if (horizontalContentAlignment == HorizontalAlignment.Right)
-            {
-                textPoint.X = actualWidth - textWidth;
-            }
-
-            if (verticalContentAlignment == VerticalAlignment.Center)
-            {
-                textPoint.Y = (actualHeight - textHeight) / 2;
-            }
-            else if (verticalContentAlignment == VerticalAlignment.Bottom)
-            {
-                textPoint.Y = actualHeight - textHeight;
-            }
-
-            if (!string.IsNullOrEmpty(formattedText.Text))
-            {
-                var lastCharGeometry = formattedText.BuildHighlightGeometry(textPoint, formattedText.Text.Length - 1, 1);
-
-                return new Point(
-                    lastCharGeometry.Bounds.Right,
-                    lastCharGeometry.Bounds.Top);
+                return new Point(_textPoint.X + rect.Left, _textPoint.Y + rect.Top);
             }
             else
             {
-                return textPoint;
+                return new Point(_textPoint.X, _textPoint.Y);
             }
         }
 
+        protected override double GetCaretHeight()
+        {
+            return _renderer.FontSize;
+        }
+
         public static readonly DependencyProperty TextProperty =
-            DependencyProperty.Register("Text", typeof(string), typeof(TextEditArea), 
+            DependencyProperty.Register("Text", typeof(string), typeof(TextEditArea),
                 new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
 
         public static readonly DependencyProperty WrappingProperty =
-            DependencyProperty.Register("Wrapping", typeof(bool), typeof(TextEditArea), 
+            DependencyProperty.Register("Wrapping", typeof(bool), typeof(TextEditArea),
                 new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
 
         public static readonly DependencyProperty VerticalContentAlignmentProperty =
-            DependencyProperty.Register("VerticalContentAlignment", typeof(VerticalAlignment), typeof(TextEditArea), 
+            DependencyProperty.Register("VerticalContentAlignment", typeof(VerticalAlignment), typeof(TextEditArea),
                 new FrameworkPropertyMetadata(VerticalAlignment.Center, FrameworkPropertyMetadataOptions.AffectsRender));
 
         public static readonly DependencyProperty HorizontalContentAlignmentProperty =
-            DependencyProperty.Register("HorizontalContentAlignment", typeof(HorizontalAlignment), typeof(TextEditArea), 
+            DependencyProperty.Register("HorizontalContentAlignment", typeof(HorizontalAlignment), typeof(TextEditArea),
                 new FrameworkPropertyMetadata(HorizontalAlignment.Left, FrameworkPropertyMetadataOptions.AffectsRender));
     }
 }

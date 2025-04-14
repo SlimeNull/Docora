@@ -132,9 +132,9 @@ namespace LibMarkdownEditor
         protected override void OnRender(DrawingContext drawingContext)
         {
             var caretStart = GetCaretLeftTop();
-            var caretHeight = GetCaretHeight() * 1.5;
+            var caretHeight = GetCaretHeight() * 1.333;
 
-            var pen = new Pen(Foreground, 1);
+            var pen = new Pen(Foreground, SizeFromDevice(1.0));
             drawingContext.DrawLine(pen, caretStart, caretStart + new Vector(0, caretHeight));
 
             base.OnRender(drawingContext);
@@ -143,11 +143,32 @@ namespace LibMarkdownEditor
         [MemberNotNull(nameof(_hwndSource))]
         private void EnsureHwndSource()
         {
-            _hwndSource = (HwndSource)(PresentationSource.FromVisual(this));
+            if (_hwndSource != null)
+            {
+                return;
+            }
 
+            _hwndSource = (HwndSource)(PresentationSource.FromVisual(this));
             if (_hwndSource == null)
             {
                 throw new InvalidOperationException("Window handle is not initialized");
+            }
+        }
+
+        private double SizeFromDevice(double size)
+        {
+            EnsureHwndSource();
+
+            var transformHeightVector = _hwndSource.CompositionTarget.TransformFromDevice.Transform(new Point(size, 0));
+
+            if (transformHeightVector.Y == 0)
+            {
+                return transformHeightVector.X;
+            }
+            else
+            {
+                return Math.Sqrt(
+                    transformHeightVector.X * transformHeightVector.X + transformHeightVector.Y * transformHeightVector.Y);
             }
         }
 
